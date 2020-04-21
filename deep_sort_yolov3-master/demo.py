@@ -11,7 +11,7 @@ import cv2
 import numpy as np
 from PIL import Image
 from yolo import YOLO
-
+import json
 from deep_sort import preprocessing
 from deep_sort import nn_matching
 from deep_sort.detection import Detection
@@ -95,7 +95,7 @@ def main(yolo):
             bbox = track.to_tlbr()
             cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])),(255,255,255), 2)
             cv2.putText(frame, str(track.track_id),(int(bbox[0]), int(bbox[1])),0, 5e-3 * 200, (0,255,0),2)
-            track2bbox[track.track_id] = bbox #keep dict matching person to box
+            track2bbox[track.track_id] = bbox.tolist() #keep dict matching person to box
 
         bboxes_per_frame.append(track2bbox) #store in chronological order in list
 
