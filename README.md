@@ -10,3 +10,5 @@ The video and timestamps will be saved in ```output/[folder_name]```
 
 E28011606000020F9FA0BC0A: Purple Tissue Box
 0000000008002216572D2295: Orange Gloves Box
+
+Each item in rfid_data.json is stored as (tag.EPC (unique ID), tag.rssi, tag.phase, timestamp in ms)
