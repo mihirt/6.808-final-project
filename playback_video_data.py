@@ -3,8 +3,14 @@ import json
 import cv2
 import time
 
+cap = cv2.VideoCapture('output.avi')
+
+total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
 with open('video_data.json', 'r') as inputfile:
-    dict_frames = json.load(inputfile)
+    timestamp_arr = json.load(inputfile)
+
+assert(len(timestamp_arr) == total)
 
 for frame in dict_frames:
     # Convert back to binary
