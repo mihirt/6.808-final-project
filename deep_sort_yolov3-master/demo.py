@@ -36,9 +36,12 @@ def main(yolo):
 
     writeVideo_flag = True
 
-    video_capture = cv2.VideoCapture(0)
+    video_capture = cv2.VideoCapture('video.avi')
     # timestamps_cv_lib = []
-    timestamps_calc = []
+    # timestamps_calc = []
+
+    bboxes_per_frame = []
+
 
     if writeVideo_flag:
     # Define the codec and create VideoWriter object
@@ -50,9 +53,12 @@ def main(yolo):
         frame_index = -1
 
     fps = 0.0
+
     # frame_count = 0 #init frame_count
+
     while True:
         ret, frame = video_capture.read()  # frame shape 640*480*3
+        track2bbox = {}
         if ret != True:
             break
 
@@ -62,7 +68,7 @@ def main(yolo):
         # frame_count+=1 #using cv lib
 
         t1 = time.time() #just using time lib
-        timestamps_calc.append(t1) #USE TIME LIBRARY TO GET TIME STAMP
+        # timestamps_calc.append(t1) #USE TIME LIBRARY TO GET TIME STAMP
 
        # image = Image.fromarray(frame)
         image = Image.fromarray(frame[...,::-1]) #bgr to rgb
@@ -89,12 +95,15 @@ def main(yolo):
             bbox = track.to_tlbr()
             cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])),(255,255,255), 2)
             cv2.putText(frame, str(track.track_id),(int(bbox[0]), int(bbox[1])),0, 5e-3 * 200, (0,255,0),2)
+            track2bbox[track.track_id] = bbox #keep dict matching person to box
+
+        bboxes_per_frame.append(track2bbox) #store in chronological order in list
 
         for det in detections:
             bbox = det.to_tlbr()
             cv2.rectangle(frame,(int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])),(255,0,0), 2)
 
-        cv2.imshow('', frame)
+        #cv2.imshow('', frame)
 
         if writeVideo_flag:
             # save a frame
@@ -120,6 +129,9 @@ def main(yolo):
         out.release()
         list_file.close()
     cv2.destroyAllWindows()
+
+    with open('bounding_boxes.json', 'w') as outfile:
+        json.dump(bboxes_per_frame, outfile)  #write dictionary to json
 
 if __name__ == '__main__':
     main(YOLO())
