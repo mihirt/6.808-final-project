@@ -7,7 +7,7 @@ from imutils.video import WebcamVideoStream
 from imutils.video import FPS
 cap = cv.VideoCapture(0)
 try:
-    reader = mercury.Reader("tmr:///dev/cu.usbmodem144101")
+    reader = mercury.Reader("tmr:///dev/cu.usbmodem146101")
     reader.set_region("NA")
     reader.set_read_plan([1], "GEN2")
     max = reader.get_power_range()[1]
@@ -26,18 +26,18 @@ timeStampedImages = []
 newVal = 0
 count = 0
 prevTime = time.time()
-cap = WebcamVideoStream(src=0).start()
+# cap = WebcamVideoStream(src=0).start()
 f = FPS().start()
 while count < 200:
-    frame = cap.read()
+    ret, frame = cap.read()
     if not True:
         print("Can't receive frame (stream end?). Exiting ...")
         break
     # print(tag.rssi)
     frame = cv.flip(frame, 0)
-    # if count % 30 == 0:
-    #     print((time.time() - prevTime) * 1000)
-    #     prevTime = time.time()
+    if count % 30 == 0:
+        print((time.time() - prevTime) * 1000)
+        prevTime = time.time()
     # write the flipped frame
     # out.write(frame)
     font = cv.FONT_HERSHEY_SIMPLEX
