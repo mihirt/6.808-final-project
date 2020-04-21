@@ -5,25 +5,24 @@ import cv2 as cv
 import mercury
 
 cap = cv.VideoCapture(0)
-reader = mercury.Reader("tmr:///dev/cu.usbmodem146101")
+try:
+    reader = mercury.Reader("tmr:///dev/cu.usbmodem144101")
+    reader.set_region("NA")
+    reader.set_read_plan([1], "GEN2")
+    max = reader.get_power_range()[1]
+    print(reader.set_read_powers([(1, 3000)]))
 
-reader.set_region("NA")
-reader.set_read_plan([1], "GEN2")
+    def readCamera(tag):
+        global newVal
+        print(tag.rssi)
+        newVal = tag.rssi
+
+    reader.start_reading(readCamera)
+except Exception as e:
+    print(e)
 
 timeStampedImages = []
 newVal = 0
-
-
-def readCamera(tag):
-    global newVal
-    print(tag.rssi)
-    newVal = tag.rssi
-
-
-max = reader.get_power_range()[1]
-print(reader.set_read_powers([(1, 2000)]))
-
-reader.start_reading(readCamera)
 
 while True:
     ret, frame = cap.read()
@@ -36,15 +35,14 @@ while True:
     # out.write(frame)
     font = cv.FONT_HERSHEY_SIMPLEX
     bottomLeftCornerOfText = (10, 500)
-    fontScale = 1
-    fontColor = (0, 255, 255)
-    lineType = 2
+    fontScale = 5
+    fontColor = (20, 0, 255)
+    lineType = 4
 
     cv.putText(frame, str(newVal), bottomLeftCornerOfText, font, fontScale,
                fontColor, lineType)
     timeStampedImages.append((frame, time.time()))
-    img_str = cv2.imencode('.jpg', frame)[1].tostring()
-
+    # img_str = cv.imencode('.jpg', frame)[1].tostring()
     cv.imshow('frame', frame)
     if cv.waitKey(1) == ord('q'):
         cap.release()
