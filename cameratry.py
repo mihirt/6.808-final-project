@@ -3,8 +3,8 @@ import numpy as np
 import cv2 as cv
 # import cPickle as pickle
 import mercury
-
-cap = cv.VideoCapture(0)
+from imutils.video import WebcamVideoStream
+# cap = cv.VideoCapture(0)
 try:
     reader = mercury.Reader("tmr:///dev/cu.usbmodem144101")
     reader.set_region("NA")
@@ -23,14 +23,19 @@ except Exception as e:
 
 timeStampedImages = []
 newVal = 0
-
+count = 0
+prevTime = time.time()
+cap = WebcamVideoStream(src=0).start()
 while True:
-    ret, frame = cap.read()
-    if not ret:
+    frame = cap.read()
+    if not True:
         print("Can't receive frame (stream end?). Exiting ...")
         break
     # print(tag.rssi)
     frame = cv.flip(frame, 0)
+    if count % 30 == 0:
+        print((time.time() - prevTime) * 1000)
+        prevTime = time.time()
     # write the flipped frame
     # out.write(frame)
     font = cv.FONT_HERSHEY_SIMPLEX
@@ -48,6 +53,7 @@ while True:
         cap.release()
         cv.destroyAllWindows()
         reader.stop_reading()
+    count += 1
 
 # while True:
 #     pass
