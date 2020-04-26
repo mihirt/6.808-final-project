@@ -71,9 +71,9 @@ def compress_camera_bin(bin_obj):
         centroid_arr = np.array(centroid_arr)
         avg_centroid = np.mean(centroid_arr, axis=0)
         person_to_avg_centroid[id] = avg_centroid
-    
+
     return person_to_avg_centroid
-        
+
 def compress_rfid_bin(bin_obj):
     rfid_to_rssi_readings = defaultdict(list)
 
@@ -83,7 +83,7 @@ def compress_rfid_bin(bin_obj):
         rfid_to_rssi_readings[obj_id].append(obj_rssi)
 
     rfid_to_avg_rssi = {}
-    
+
     for id, rssi_arr in rfid_to_rssi_readings.items():
         rssi_arr = np.array(rssi_arr)
         avg_rssi = np.mean(rssi_arr)
@@ -94,7 +94,37 @@ def compress_rfid_bin(bin_obj):
 processed_camera_bins = {timestamp: compress_camera_bin(obj) for timestamp, obj in camera_bins.items()}
 processed_rfid_bins = {timestamp: compress_rfid_bin(obj) for timestamp, obj in rfid_bins.items()}
 
+def compute_delta_distance(start_bin_num, camera_bins, bin_size = 50, window_size = 10):
+    '''Returns magnitude and direction of change for each obj'''
+    end_bin_num = bin_size*window_size
 
+    start_bin = camera_bins[start_bin_num] #dictionary with object id => np array of coords
+    end_bin = camera_bins[end_bin_num + start_bin_num]
+
+    output = []
+    for obj in start_bin:
+        if obj in end_bin:
+            euc_dist = np.linalg.norm(start_bin[obj]-end_bin[obj])
+            if np.linalg.norm(start_bin[obj]) > np.linalg.norm(end_bin[obj]):
+                euc_dist = -1*euc_dist #sign indicates direction of change in mag
+            output.append((obj, euc_dist))
+    return output
+
+def compute_delta_rfid(start_bin_num, rfid_bins, bin_size = 50, window_size = 10):
+    '''Returns magnitude and direction of change, maybe output should be sorted in
+    ascending order or somethin?'''
+    end_bin_num = bin_size*window_size
+
+    start_bin = rfid_bins[start_bin_num] #list of lists
+    end_bin = rfid_bins[end_bin_num + start_bin_num]
+
+    output = []
+    for tag in start_bin:
+        if tag in end_bin:
+            delta = end_bin[tag] - start_bin[tag]
+            output.append((tag, delta))
+    return output
+
+print(compute_delta_distance(1587490372400.0, processed_camera_bins))
 
 embed()
-
