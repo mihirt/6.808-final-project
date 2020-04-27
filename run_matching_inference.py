@@ -5,14 +5,18 @@ import time
 from IPython import embed
 from collections import defaultdict
 import numpy as np
+from numpy import cov
+from scipy.stats import pearsonr, spearmanr
 
-with open('video_data.json', 'r') as inputfile:
+base_directory = 'data_multiple_1/'
+
+with open(base_directory + 'video_data.json', 'r') as inputfile:
     timestamp_data = json.load(inputfile)
 
-with open('bounding_boxes.json', 'r') as inputfile:
+with open(base_directory + 'bounding_boxes.json', 'r') as inputfile:
     bbox_data = json.load(inputfile)
 
-with open('rfid_data.json', 'r') as inputfile:
+with open(base_directory + 'rfid_data.json', 'r') as inputfile:
     rfid_data = json.load(inputfile)
 
 def round_down(num, divisor):
@@ -94,7 +98,108 @@ def compress_rfid_bin(bin_obj):
 processed_camera_bins = {timestamp: compress_camera_bin(obj) for timestamp, obj in camera_bins.items()}
 processed_rfid_bins = {timestamp: compress_rfid_bin(obj) for timestamp, obj in rfid_bins.items()}
 
-def compute_delta_distance(start_bin_num, camera_bins, bin_size = 50, window_size = 10):
+
+def create_delta_dict(processed_bins):
+    ''' 
+    Calculate % differences between centroid and RFID values.
+    '''
+    delta_dict = {}
+    for i, t in enumerate(sorted(processed_camera_bins.keys())):
+        if i == 0:
+            continue
+        timestep_deltas = {}
+        for id, val in processed_bins[t].items(): 
+            if id in processed_bins[t-BIN_SZ]:
+                prev_val = processed_bins[t-BIN_SZ][id]
+                timestep_deltas[id] = (val - prev_val) / (prev_val)
+        delta_dict[i] = timestep_deltas
+    return delta_dict
+
+delta_camera = create_delta_dict(processed_camera_bins)
+delta_rfid = create_delta_dict(processed_rfid_bins)
+
+def get_timesteps_with_id(data, id):
+    '''
+    Get all timesteps associated with any specific id (from the data).
+    '''
+    timesteps_arr = []
+    for key, val in data.items():
+        if id in val:
+            timesteps_arr.append(key)
+    return set(timesteps_arr)
+
+
+def compute_similarity(rfid_id, camera_id):
+    '''
+    Computes the covariance, Pearson and Spearman correlations between RFID and Camera data.
+    '''
+    # first, chop RFID to person data! 
+    # or chop to both?
+    timesteps_rfid = get_timesteps_with_id(delta_rfid, rfid_id)
+    timesteps_camera = get_timesteps_with_id(delta_camera, camera_id)
+
+    # grab intersecting timesteps?
+    intersecting_timesteps = timesteps_rfid.intersection(timesteps_camera)
+
+    rfid = [delta_rfid[i][rfid_id] for i in intersecting_timesteps]
+    camera_x = [delta_camera[i][camera_id][0] for i in intersecting_timesteps]
+    camera_y = [delta_camera[i][camera_id][1] for i in intersecting_timesteps]
+
+    # returns (cov (x, rfid), cov (y, rfid), pearson(x, rfid), pearson(y,rfid), spearman (x, rfid), spearman(y, rfid))
+    cov_x_rfid = cov(camera_x, rfid)[0][1]
+    cov_y_rfid = cov(camera_y, rfid)[0][1]
+
+    pearson_x_rfid, _ = pearsonr(camera_x, rfid)
+    pearson_y_rfid, _ = pearsonr(camera_y, rfid)
+
+    spearman_x_rfid, _ = spearmanr(camera_x, rfid)
+    spearman_y_rfid, _ = spearmanr(camera_y, rfid)
+
+    return np.array([cov_x_rfid, cov_y_rfid, pearson_x_rfid, pearson_y_rfid, spearman_x_rfid, spearman_y_rfid])
+
+def get_unique_ids(processed_bins):
+    '''
+    Get all unique ids (either camera or RFIDs).
+    '''
+    id_arr = []
+    for bucket_obj in processed_bins.values():
+        id_arr += bucket_obj.keys()
+    return set(id_arr)
+
+rfid_ids = get_unique_ids(delta_rfid)
+camera_ids = get_unique_ids(delta_camera)
+
+matching = {}
+
+for rfid_id in rfid_ids:
+    max_object = None
+    max_object_val = 0.0
+    
+    for camera_id in camera_ids:
+        similarity_arr = compute_similarity(rfid_id, camera_id)
+        abs_similarity = np.absolute(similarity_arr)
+        
+        # multiply by weights
+        weighted_similarity = np.multiply(abs_similarity, [1./6]*6)
+
+        weighted_sum = np.sum(weighted_similarity)
+
+        if weighted_sum > max_object_val:
+            max_object = camera_id
+            max_object_val = weighted_sum
+        
+        print('SIMILARITY between {} and {} = {} -> value of {}'.format(rfid_id, camera_id, similarity_arr, weighted_sum))
+
+
+    matching[rfid_id] = max_object
+
+
+# # NOTE: the matching datastructure contains the final inferred matchings. 
+## TODO: integrate below delta methods with above inference procedures. 
+embed()
+
+
+def compute_delta_distance(start_bin_num, camerar_bins, bin_size = BIN_SZ, window_size = 10):
     '''Returns magnitude and direction of change for each obj'''
     end_bin_num = bin_size*window_size
 
@@ -127,4 +232,3 @@ def compute_delta_rfid(start_bin_num, rfid_bins, bin_size = 50, window_size = 10
 
 print(compute_delta_distance(1587490372400.0, processed_camera_bins))
 
-embed()
