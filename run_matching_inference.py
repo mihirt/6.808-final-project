@@ -28,6 +28,9 @@ BIN_SZ = 50
 start = round_up(max(timestamp_data[0], rfid_data[0][3]), BIN_SZ)
 end = round_down(min(timestamp_data[-1], rfid_data[-1][3]), BIN_SZ)
 
+absolute_start = start #store for use later
+absolute_end = end
+
 camera_bins = {}
 rfid_bins = {}
 
@@ -101,13 +104,13 @@ def compute_delta_distance(start_bin_num, camera_bins, bin_size = 50, window_siz
     start_bin = camera_bins[start_bin_num] #dictionary with object id => np array of coords
     end_bin = camera_bins[end_bin_num + start_bin_num]
 
-    output = []
+    output = {}
     for obj in start_bin:
         if obj in end_bin:
             euc_dist = np.linalg.norm(start_bin[obj]-end_bin[obj])
             if np.linalg.norm(start_bin[obj]) > np.linalg.norm(end_bin[obj]):
                 euc_dist = -1*euc_dist #sign indicates direction of change in mag
-            output.append((obj, euc_dist))
+            output[obj] = euc_dist
     return output
 
 def compute_delta_rfid(start_bin_num, rfid_bins, bin_size = 50, window_size = 10):
@@ -118,13 +121,20 @@ def compute_delta_rfid(start_bin_num, rfid_bins, bin_size = 50, window_size = 10
     start_bin = rfid_bins[start_bin_num] #list of lists
     end_bin = rfid_bins[end_bin_num + start_bin_num]
 
-    output = []
+    output = {}
     for tag in start_bin:
         if tag in end_bin:
             delta = end_bin[tag] - start_bin[tag]
-            output.append((tag, delta))
+            output[tag] =  delta
     return output
 
-print(compute_delta_distance(1587490372400.0, processed_camera_bins))
 
-embed()
+def run_matching(absolute_start, absolute_end, processed_rfid_bins, processed_camera_bins, window_size = 10, bin_size = 50):
+    for timestamp in range(int(absolute_start), int(absolute_end-bin_size*window_size), bin_size):
+        tags = compute_delta_rfid(timestamp, processed_rfid_bins, bin_size, window_size)
+        people = compute_delta_distance(timestamp, processed_camera_bins, bin_size, window_size)
+        print(tags)
+        print(people)
+
+run_matching(absolute_start, absolute_end, processed_rfid_bins, processed_camera_bins, window_size = 10, bin_size = 50)
+#embed()
