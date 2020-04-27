@@ -133,6 +133,7 @@ def run_matching(absolute_start, absolute_end, processed_rfid_bins, processed_ca
     for timestamp in range(int(absolute_start), int(absolute_end-bin_size*window_size), bin_size):
         tags = compute_delta_rfid(timestamp, processed_rfid_bins, bin_size, window_size)
         people = compute_delta_distance(timestamp, processed_camera_bins, bin_size, window_size)
+        print("Change across 500 ms period:")
         print(tags)
         print(people)
 
