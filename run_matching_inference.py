@@ -100,7 +100,7 @@ processed_rfid_bins = {timestamp: compress_rfid_bin(obj) for timestamp, obj in r
 
 
 def create_delta_dict(processed_bins):
-    ''' 
+    '''
     Calculate % differences between centroid and RFID values.
     '''
     delta_dict = {}
@@ -108,7 +108,7 @@ def create_delta_dict(processed_bins):
         if i == 0:
             continue
         timestep_deltas = {}
-        for id, val in processed_bins[t].items(): 
+        for id, val in processed_bins[t].items():
             if id in processed_bins[t-BIN_SZ]:
                 prev_val = processed_bins[t-BIN_SZ][id]
                 timestep_deltas[id] = (val - prev_val) / (prev_val)
@@ -133,7 +133,7 @@ def compute_similarity(rfid_id, camera_id):
     '''
     Computes the covariance, Pearson and Spearman correlations between RFID and Camera data.
     '''
-    # first, chop RFID to person data! 
+    # first, chop RFID to person data!
     # or chop to both?
     timesteps_rfid = get_timesteps_with_id(delta_rfid, rfid_id)
     timesteps_camera = get_timesteps_with_id(delta_camera, camera_id)
@@ -174,11 +174,11 @@ matching = {}
 for rfid_id in rfid_ids:
     max_object = None
     max_object_val = 0.0
-    
+
     for camera_id in camera_ids:
         similarity_arr = compute_similarity(rfid_id, camera_id)
         abs_similarity = np.absolute(similarity_arr)
-        
+
         # multiply by weights
         weighted_similarity = np.multiply(abs_similarity, [1./6]*6)
 
@@ -187,19 +187,19 @@ for rfid_id in rfid_ids:
         if weighted_sum > max_object_val:
             max_object = camera_id
             max_object_val = weighted_sum
-        
+
         print('SIMILARITY between {} and {} = {} -> value of {}'.format(rfid_id, camera_id, similarity_arr, weighted_sum))
 
 
     matching[rfid_id] = max_object
 
 
-# # NOTE: the matching datastructure contains the final inferred matchings. 
-## TODO: integrate below delta methods with above inference procedures. 
+# # NOTE: the matching datastructure contains the final inferred matchings.
+## TODO: integrate below delta methods with above inference procedures.
 embed()
 
 
-def compute_delta_distance(start_bin_num, camerar_bins, bin_size = BIN_SZ, window_size = 10):
+def compute_delta_distance(start_bin_num, camera_bins, bin_size = BIN_SZ, window_size = 10):
     '''Returns magnitude and direction of change for each obj'''
     end_bin_num = bin_size*window_size
 
@@ -231,4 +231,3 @@ def compute_delta_rfid(start_bin_num, rfid_bins, bin_size = 50, window_size = 10
     return output
 
 print(compute_delta_distance(1587490372400.0, processed_camera_bins))
-
