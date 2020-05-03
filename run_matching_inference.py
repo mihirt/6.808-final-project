@@ -8,7 +8,8 @@ import numpy as np
 from numpy import cov
 from scipy.stats import pearsonr, spearmanr
 
-base_directory = 'data_multiple_1/'
+base_directory = 'large_space_2_box_fixed/'
+NUM_FRAMES = 300 #must correspond to number specified in demo.py
 
 with open(base_directory + 'video_data.json', 'r') as inputfile:
     timestamp_data = json.load(inputfile)
@@ -24,6 +25,8 @@ def round_down(num, divisor):
 
 def round_up(num, divisor):
     return round_down(num+divisor, divisor)
+
+timestamp_data = timestamp_data[:NUM_FRAMES] #shorten based on length of bbox data
 
 
 # binning
@@ -157,6 +160,150 @@ def compute_similarity(rfid_id, camera_id):
 
     return np.array([cov_x_rfid, cov_y_rfid, pearson_x_rfid, pearson_y_rfid, spearman_x_rfid, spearman_y_rfid])
 
+def movingaverage(values, window):
+    '''Computes Moving average using an average of window# of terms.'''
+    weights = np.repeat(1.0, window)/window
+    sma = np.convolve(values, weights, 'same')
+    return sma
+
+def create_deltas(array):
+    '''takes array of size n. returns array of size n-1 corresponding to the delta
+    changes between entries.'''
+    out = [0]*(len(array)-1)
+    for i in range(1, len(array)):
+        out[i-1] = (array[i]-array[i-1])/array[i-1]
+    return out
+
+def compute_window_similarity(camera_x, camera_y, rfid):
+    '''takes array of delta camera x-vals, array of camera y-vals,
+    and array of delta rfid readings and computes covariances.'''
+    cov_x_rfid = cov(camera_x, rfid)[0][1]
+    cov_y_rfid = cov(camera_y, rfid)[0][1]
+
+    pearson_x_rfid, _ = pearsonr(camera_x, rfid)
+    pearson_y_rfid, _ = pearsonr(camera_y, rfid)
+
+    spearman_x_rfid, _ = spearmanr(camera_x, rfid)
+    spearman_y_rfid, _ = spearmanr(camera_y, rfid)
+
+    return np.array([cov_x_rfid, cov_y_rfid, pearson_x_rfid, pearson_y_rfid, spearman_x_rfid, spearman_y_rfid])
+
+
+def matching_in_window(bins_of_interest, people_of_interest, objects_of_interest):
+    '''compute deltas for window  and use delta to compute covaraince'''
+    # returns (cov (x, rfid), cov (y, rfid), pearson(x, rfid), pearson(y,rfid), spearman (x, rfid), spearman(y, rfid))
+
+    matching = {}
+
+    for rfid_id in objects_of_interest.keys():
+        delta_rfid = create_deltas(objects_of_interest[rfid_id])
+        max_object = None
+        max_object_val = 0.0
+
+        for camera_id in people_of_interest.keys():
+            delta_camera_x = create_deltas(people_of_interest[camera_id][0])
+            delta_camera_y = create_deltas(people_of_interest[camera_id][1])
+            similarity_arr = compute_window_similarity(delta_camera_x, delta_camera_y, delta_rfid)
+            abs_similarity = np.absolute(similarity_arr)
+
+            # multiply by weights
+            weighted_similarity = np.multiply(abs_similarity, [1./6]*6)
+
+            weighted_sum = np.sum(weighted_similarity)
+
+            if weighted_sum > max_object_val:
+                max_object = camera_id
+                max_object_val = weighted_sum
+
+            print('SIMILARITY between {} and {} = {} -> value of {}'.format(rfid_id, camera_id, similarity_arr, weighted_sum))
+
+
+        matching[rfid_id] = max_object
+    return matching
+
+def get_smooth_data_for_window(camera_data_dict, rfid_data_dict, start, window_size, bin_size):
+    '''FOR GIVEN WINDOW
+    For each person smooth x data, smooth y data,
+    (even smooth depth data if we get it).
+    For each tag, smooth rfid data'''
+
+    bins_of_interest = []
+    people_in_window = set()
+    objects_in_window = set()
+
+    #Determine bins in window
+    for i in range(int(start), int(start + window_size*bin_size), bin_size):
+        bins_of_interest.append(float(i))
+
+    #Determine all people and objects that are detected at some point in window
+    for b in bins_of_interest:
+        for p in camera_data_dict[b].keys():
+            people_in_window.add(p)
+        for o in rfid_data_dict[b].keys():
+            objects_in_window.add(o)
+
+    #Initialize the data storage for each person and object in the window
+    people_of_interest = {}
+    objects_of_interest ={}
+    for p in people_in_window: #init x,y for each bin
+        people_of_interest[p] = ([-0.5]*window_size, [-0.5]*window_size)
+    for o in objects_in_window: #init rssi for each bin
+        objects_of_interest[o] = [-0.5]*window_size
+
+    #For each person and each object, iterate through bins and store data
+    for p in people_of_interest:
+        i = 0
+        for b in bins_of_interest:
+            try:
+                x,y = camera_data_dict[b][p]
+                people_of_interest[p][0][i] = x
+                people_of_interest[p][1][i] = y
+            except:
+                pass
+            i+=1
+
+    for o in objects_of_interest:
+        i = 0
+        for b in bins_of_interest:
+            try:
+                rssi = rfid_data_dict[b][o]
+                objects_of_interest[o][i] = rssi
+            except:
+                pass
+            i+=1
+
+    #Display Data Before Smoothing
+    # print(objects_of_interest)
+    # print(people_of_interest)
+
+    # SMOOTH DATA
+    avg_window = 3
+    for p in people_of_interest:
+        xvalues = people_of_interest[p][0]
+        yvalues = people_of_interest[p][1]
+        people_of_interest[p] = (movingaverage(xvalues, avg_window), movingaverage(yvalues, avg_window))
+
+    for o in objects_of_interest:
+        values = objects_of_interest[o]
+        objects_of_interest[o] = movingaverage(values, avg_window)
+
+    return bins_of_interest, people_of_interest, objects_of_interest
+
+
+b,p,o = get_smooth_data_for_window(processed_camera_bins, processed_rfid_bins, 1588113136450.0, 10, 50)
+print(matching_in_window(b, p, o))
+
+# def smooth(data_as_list, weights = [.4,.6,1.0,2.0], window = 4):
+#     '''pad with list average, assumes small window sizes so there are not
+#     large changes in vals across window.'''
+#     padding_val = sum(data_as_list)/len(data_as_list)
+#     amount_padding = window-1
+#     padding = [padding_val for i in range(amount_padding)]
+#     intermediate = padding + data_as_list + padding
+#     sma = np.convolve(intermediate, np.array(weights)/window, 'valid')
+#     return sma[0:-amount_padding]
+
+
 def get_unique_ids(processed_bins):
     '''
     Get all unique ids (either camera or RFIDs).
@@ -199,35 +346,33 @@ for rfid_id in rfid_ids:
 embed()
 
 
-def compute_delta_distance(start_bin_num, camera_bins, bin_size = BIN_SZ, window_size = 10):
-    '''Returns magnitude and direction of change for each obj'''
-    end_bin_num = bin_size*window_size
-
-    start_bin = camera_bins[start_bin_num] #dictionary with object id => np array of coords
-    end_bin = camera_bins[end_bin_num + start_bin_num]
-
-    output = []
-    for obj in start_bin:
-        if obj in end_bin:
-            euc_dist = np.linalg.norm(start_bin[obj]-end_bin[obj])
-            if np.linalg.norm(start_bin[obj]) > np.linalg.norm(end_bin[obj]):
-                euc_dist = -1*euc_dist #sign indicates direction of change in mag
-            output.append((obj, euc_dist))
-    return output
-
-def compute_delta_rfid(start_bin_num, rfid_bins, bin_size = 50, window_size = 10):
-    '''Returns magnitude and direction of change, maybe output should be sorted in
-    ascending order or somethin?'''
-    end_bin_num = bin_size*window_size
-
-    start_bin = rfid_bins[start_bin_num] #list of lists
-    end_bin = rfid_bins[end_bin_num + start_bin_num]
-
-    output = []
-    for tag in start_bin:
-        if tag in end_bin:
-            delta = end_bin[tag] - start_bin[tag]
-            output.append((tag, delta))
-    return output
-
-print(compute_delta_distance(1587490372400.0, processed_camera_bins))
+# def compute_delta_distance(start_bin_num, camera_bins, bin_size = BIN_SZ, window_size = 10):
+#     '''Returns magnitude and direction of change for each obj'''
+#     end_bin_num = bin_size*window_size
+#
+#     start_bin = camera_bins[start_bin_num] #dictionary with object id => np array of coords
+#     end_bin = camera_bins[end_bin_num + start_bin_num]
+#
+#     output = []
+#     for obj in start_bin:
+#         if obj in end_bin:
+#             euc_dist = np.linalg.norm(start_bin[obj]-end_bin[obj])
+#             if np.linalg.norm(start_bin[obj]) > np.linalg.norm(end_bin[obj]):
+#                 euc_dist = -1*euc_dist #sign indicates direction of change in mag
+#             output.append((obj, euc_dist))
+#     return output
+#
+# def compute_delta_rfid(start_bin_num, rfid_bins, bin_size = 50, window_size = 10):
+#     '''Returns magnitude and direction of change, maybe output should be sorted in
+#     ascending order or somethin?'''
+#     end_bin_num = bin_size*window_size
+#
+#     start_bin = rfid_bins[start_bin_num] #list of lists
+#     end_bin = rfid_bins[end_bin_num + start_bin_num]
+#
+#     output = []
+#     for tag in start_bin:
+#         if tag in end_bin:
+#             delta = end_bin[tag] - start_bin[tag]
+#             output.append((tag, delta))
+#     return output
