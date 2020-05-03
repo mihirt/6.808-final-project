@@ -143,6 +143,9 @@ from tools import generate_detections as gdet
 from deep_sort.detection import Detection as ddet
 warnings.filterwarnings('ignore')
 
+BASE_DIR = '/Users/ericpence/Desktop/808_proj/env1/'
+FRAME_COUNT = 300
+
 def main(yolo):
 
    # Definition of the parameters
@@ -159,7 +162,7 @@ def main(yolo):
 
     writeVideo_flag = True
 
-    video_capture = cv2.VideoCapture('video.avi')
+    video_capture = cv2.VideoCapture(BASE_DIR+'6.808-final-project/large_space_2_box_fixed/video.avi')
     # timestamps_cv_lib = []
     # timestamps_calc = []
 
@@ -177,9 +180,11 @@ def main(yolo):
 
     fps = 0.0
 
-    # frame_count = 0 #init frame_count
+    frame_count = FRAME_COUNT #init frame_count
 
-    while True:
+    while frame_count > 0:
+        print(frame_count)
+        frame_count -= 1
         ret, frame = video_capture.read()  # frame shape 640*480*3
         track2bbox = {}
         if ret != True:
@@ -253,7 +258,7 @@ def main(yolo):
         list_file.close()
     cv2.destroyAllWindows()
 
-    with open('bounding_boxes.json', 'w') as outfile:
+    with open(BASE_DIR+'6.808-final-project/large_space_2_box_fixed/bounding_boxes.json', 'w') as outfile:
         json.dump(bboxes_per_frame, outfile)  #write dictionary to json
 
 if __name__ == '__main__':
