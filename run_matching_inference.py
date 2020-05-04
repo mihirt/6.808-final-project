@@ -7,6 +7,7 @@ from collections import defaultdict
 import numpy as np
 from numpy import cov
 from scipy.stats import pearsonr, spearmanr
+from rssi_to_distance import convert_rssi_to_distance
 
 base_directory = 'large_space_2_box_fixed/'
 NUM_FRAMES = 300 #must correspond to number specified in demo.py
@@ -266,7 +267,7 @@ def get_smooth_data_for_window(camera_data_dict, rfid_data_dict, start, window_s
         i = 0
         for b in bins_of_interest:
             try:
-                rssi = rfid_data_dict[b][o]
+                rssi = convert_rssi_to_distance(rfid_data_dict[b][o]) #convert to true distance
                 objects_of_interest[o][i] = rssi
             except:
                 pass
