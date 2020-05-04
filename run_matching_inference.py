@@ -314,31 +314,31 @@ def get_unique_ids(processed_bins):
         id_arr += bucket_obj.keys()
     return set(id_arr)
 
-rfid_ids = get_unique_ids(delta_rfid)
-camera_ids = get_unique_ids(delta_camera)
-
-matching = {}
-
-for rfid_id in rfid_ids:
-    max_object = None
-    max_object_val = 0.0
-
-    for camera_id in camera_ids:
-        similarity_arr = compute_similarity(rfid_id, camera_id)
-        abs_similarity = np.absolute(similarity_arr)
-
-        # multiply by weights
-        weighted_similarity = np.multiply(abs_similarity, [1./6]*6)
-
-        weighted_sum = np.sum(weighted_similarity)
-
-        if weighted_sum > max_object_val:
-            max_object = camera_id
-            max_object_val = weighted_sum
-
-        print('SIMILARITY between {} and {} = {} -> value of {}'.format(rfid_id, camera_id, similarity_arr, weighted_sum))
-
-
-    matching[rfid_id] = max_object
+# rfid_ids = get_unique_ids(delta_rfid)
+# camera_ids = get_unique_ids(delta_camera)
+#
+# matching = {}
+#
+# for rfid_id in rfid_ids:
+#     max_object = None
+#     max_object_val = 0.0
+#
+#     for camera_id in camera_ids:
+#         similarity_arr = compute_similarity(rfid_id, camera_id)
+#         abs_similarity = np.absolute(similarity_arr)
+#
+#         # multiply by weights
+#         weighted_similarity = np.multiply(abs_similarity, [1./6]*6)
+#
+#         weighted_sum = np.sum(weighted_similarity)
+#
+#         if weighted_sum > max_object_val:
+#             max_object = camera_id
+#             max_object_val = weighted_sum
+#
+#         print('SIMILARITY between {} and {} = {} -> value of {}'.format(rfid_id, camera_id, similarity_arr, weighted_sum))
+#
+#
+#     matching[rfid_id] = max_object
 
 embed()
