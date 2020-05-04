@@ -341,39 +341,4 @@ for rfid_id in rfid_ids:
 
     matching[rfid_id] = max_object
 
-
-# # NOTE: the matching datastructure contains the final inferred matchings.
-## TODO: integrate below delta methods with above inference procedures.
 embed()
-
-
-# def compute_delta_distance(start_bin_num, camera_bins, bin_size = BIN_SZ, window_size = 10):
-#     '''Returns magnitude and direction of change for each obj'''
-#     end_bin_num = bin_size*window_size
-#
-#     start_bin = camera_bins[start_bin_num] #dictionary with object id => np array of coords
-#     end_bin = camera_bins[end_bin_num + start_bin_num]
-#
-#     output = []
-#     for obj in start_bin:
-#         if obj in end_bin:
-#             euc_dist = np.linalg.norm(start_bin[obj]-end_bin[obj])
-#             if np.linalg.norm(start_bin[obj]) > np.linalg.norm(end_bin[obj]):
-#                 euc_dist = -1*euc_dist #sign indicates direction of change in mag
-#             output.append((obj, euc_dist))
-#     return output
-#
-# def compute_delta_rfid(start_bin_num, rfid_bins, bin_size = 50, window_size = 10):
-#     '''Returns magnitude and direction of change, maybe output should be sorted in
-#     ascending order or somethin?'''
-#     end_bin_num = bin_size*window_size
-#
-#     start_bin = rfid_bins[start_bin_num] #list of lists
-#     end_bin = rfid_bins[end_bin_num + start_bin_num]
-#
-#     output = []
-#     for tag in start_bin:
-#         if tag in end_bin:
-#             delta = end_bin[tag] - start_bin[tag]
-#             output.append((tag, delta))
-#     return output
