@@ -35,6 +35,8 @@ BIN_SZ = 50
 
 start = round_up(max(timestamp_data[0], rfid_data[0][3]), BIN_SZ)
 end = round_down(min(timestamp_data[-1], rfid_data[-1][3]), BIN_SZ)
+absolute_start = start
+absolute_end = end
 
 camera_bins = {}
 rfid_bins = {}
@@ -176,7 +178,9 @@ def get_smooth_data_for_window(camera_data_dict, rfid_data_dict, start, window_s
     objects_in_window = set()
 
     #Determine bins in window
-    for i in range(int(start), int(start + window_size*bin_size), bin_size):
+    end = min(int(start + window_size*bin_size), int(max(camera_data_dict.keys())))
+
+    for i in range(int(start), end, bin_size):
         bins_of_interest.append(float(i))
 
     #Determine all people and objects that are detected at some point in window
@@ -233,9 +237,13 @@ def get_smooth_data_for_window(camera_data_dict, rfid_data_dict, start, window_s
 
     return bins_of_interest, people_of_interest, objects_of_interest
 
-
-b,p,o = get_smooth_data_for_window(processed_camera_bins, processed_rfid_bins, 1588113136450.0, 10, 50)
-print(matching_in_window(b, p, o))
+print("runnnnnn")
+print(absolute_start, absolute_end)
+for t in range(int(absolute_start), int(absolute_end), 50):
+    print(t)
+    timestep = float(t)
+    b,p,o = get_smooth_data_for_window(processed_camera_bins, processed_rfid_bins, timestep, 10, 50)
+    print(matching_in_window(b, p, o))
 
 ########################################
 #Full Video Analysis Methods
