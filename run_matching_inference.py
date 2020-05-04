@@ -294,16 +294,6 @@ def get_smooth_data_for_window(camera_data_dict, rfid_data_dict, start, window_s
 b,p,o = get_smooth_data_for_window(processed_camera_bins, processed_rfid_bins, 1588113136450.0, 10, 50)
 print(matching_in_window(b, p, o))
 
-# def smooth(data_as_list, weights = [.4,.6,1.0,2.0], window = 4):
-#     '''pad with list average, assumes small window sizes so there are not
-#     large changes in vals across window.'''
-#     padding_val = sum(data_as_list)/len(data_as_list)
-#     amount_padding = window-1
-#     padding = [padding_val for i in range(amount_padding)]
-#     intermediate = padding + data_as_list + padding
-#     sma = np.convolve(intermediate, np.array(weights)/window, 'valid')
-#     return sma[0:-amount_padding]
-
 
 def get_unique_ids(processed_bins):
     '''
