@@ -237,8 +237,6 @@ def get_smooth_data_for_window(camera_data_dict, rfid_data_dict, start, window_s
 
     return bins_of_interest, people_of_interest, objects_of_interest
 
-print("runnnnnn")
-print(absolute_start, absolute_end)
 for t in range(int(absolute_start), int(absolute_end), 50):
     print(t)
     timestep = float(t)
