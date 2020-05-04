@@ -2,6 +2,7 @@ import base64
 import json
 import cv2
 import time
+import matplotlib.pyplot
 from IPython import embed
 from collections import defaultdict
 import numpy as np
@@ -21,6 +22,9 @@ with open(base_directory + 'bounding_boxes.json', 'r') as inputfile:
 with open(base_directory + 'rfid_data.json', 'r') as inputfile:
     rfid_data = json.load(inputfile)
 
+with open(base_directory + 'depths.json', 'r') as inputfile:
+    depth_data = json.load(inputfile)
+
 def round_down(num, divisor):
     return num - (num%divisor)
 
@@ -38,24 +42,30 @@ end = round_down(min(timestamp_data[-1], rfid_data[-1][3]), BIN_SZ)
 absolute_start = start
 absolute_end = end
 
+depth_bins = {}
 camera_bins = {}
 rfid_bins = {}
 
 while timestamp_data[0] < start:
     timestamp_data = timestamp_data[1:]
     bbox_data = bbox_data[1:]
+    depth_data = depth_data[1:]
 
 ## ASSUMING CHRONOLOGICAL ORDER OF RFID DATA
 while rfid_data[0][3] < start:
     rfid_data = rfid_data[1:]
 
 while start < end:
-    temp_bin = []
+    temp_cam_bin = []
+    temp_dep_bin = []
     while len(timestamp_data) > 0 and timestamp_data[0] < start + BIN_SZ:
-        temp_bin.append(bbox_data[0])
+        temp_cam_bin.append(bbox_data[0])
+        temp_dep_bin.append(depth_data[0])
         timestamp_data = timestamp_data[1:]
         bbox_data = bbox_data[1:]
-    camera_bins[start] = temp_bin
+        depth_data = depth_data[1:]
+    camera_bins[start] = temp_cam_bin
+    depth_bins[start] = temp_dep_bin
 
     temp_bin = []
     while len(rfid_data) > 0 and rfid_data[0][3] < start + BIN_SZ:
@@ -84,6 +94,22 @@ def compress_camera_bin(bin_obj):
 
     return person_to_avg_centroid
 
+def compress_depth_bin(bin_obj):
+    person_to_depths = defaultdict(list) # id -> [depth1, depth2...]
+
+    for reading in bin_obj:
+        for id, d in reading.items():
+            person_to_depths[id].append(d)
+
+    person_to_avg_depth = {}
+
+    for id, depth_arr in person_to_depths.items():
+        depth_arr = np.array(depth_arr).astype(np.float) #convert from str to float
+        avg_depth = np.mean(depth_arr)
+        person_to_avg_depth[id] = avg_depth
+
+    return person_to_avg_depth
+
 def compress_rfid_bin(bin_obj):
     rfid_to_rssi_readings = defaultdict(list)
 
@@ -101,9 +127,9 @@ def compress_rfid_bin(bin_obj):
 
     return rfid_to_avg_rssi
 
+processed_depth_bins = {timestamp: compress_depth_bin(obj) for timestamp, obj in depth_bins.items()}
 processed_camera_bins = {timestamp: compress_camera_bin(obj) for timestamp, obj in camera_bins.items()}
 processed_rfid_bins = {timestamp: compress_rfid_bin(obj) for timestamp, obj in rfid_bins.items()}
-
 ##################################
 #Window Analysis Methods
 def movingaverage(values, window):
@@ -120,22 +146,24 @@ def create_deltas(array):
         out[i-1] = (array[i]-array[i-1])/array[i-1]
     return out
 
-def compute_window_similarity(camera_x, camera_y, rfid):
+def compute_window_similarity(camera_x, camera_y, camera_depths, rfid):
     '''takes array of delta camera x-vals, array of camera y-vals,
     and array of delta rfid readings and computes covariances.'''
     cov_x_rfid = cov(camera_x, rfid)[0][1]
     cov_y_rfid = cov(camera_y, rfid)[0][1]
+    cov_d_rfid = cov(camera_depths, rfid)[0][1]
 
     pearson_x_rfid, _ = pearsonr(camera_x, rfid)
     pearson_y_rfid, _ = pearsonr(camera_y, rfid)
+    pearson_d_rfid, _ = pearsonr(camera_depths, rfid)
 
     spearman_x_rfid, _ = spearmanr(camera_x, rfid)
     spearman_y_rfid, _ = spearmanr(camera_y, rfid)
+    spearman_d_rfid, _ = spearmanr(camera_depths, rfid)
 
-    return np.array([cov_x_rfid, cov_y_rfid, pearson_x_rfid, pearson_y_rfid, spearman_x_rfid, spearman_y_rfid])
+    return np.array([cov_x_rfid, cov_y_rfid, cov_d_rfid, pearson_x_rfid, pearson_y_rfid, pearson_d_rfid, spearman_x_rfid, spearman_y_rfid, spearman_d_rfid])
 
-
-def matching_in_window(bins_of_interest, people_of_interest, objects_of_interest):
+def matching_in_window(bins_of_interest, people_of_interest, objects_of_interest, cam_x, cam_y, cam_d, rfid):
     '''compute deltas for window  and use delta to compute covaraince'''
     # returns (cov (x, rfid), cov (y, rfid), pearson(x, rfid), pearson(y,rfid), spearman (x, rfid), spearman(y, rfid))
 
@@ -149,11 +177,18 @@ def matching_in_window(bins_of_interest, people_of_interest, objects_of_interest
         for camera_id in people_of_interest.keys():
             delta_camera_x = create_deltas(people_of_interest[camera_id][0])
             delta_camera_y = create_deltas(people_of_interest[camera_id][1])
-            similarity_arr = compute_window_similarity(delta_camera_x, delta_camera_y, delta_rfid)
+            delta_camera_depths = create_deltas(people_of_interest[camera_id][2])
+            similarity_arr = compute_window_similarity(delta_camera_x, delta_camera_y, delta_camera_depths, delta_rfid)
             abs_similarity = np.absolute(similarity_arr)
 
+            #plot
+            cam_x += delta_camera_x
+            cam_y += delta_camera_y
+            cam_d += delta_camera_depths
+            rfid += delta_rfid
+
             # multiply by weights
-            weighted_similarity = np.multiply(abs_similarity, [1./6]*6)
+            weighted_similarity = np.multiply(abs_similarity, [1./9]*9)
 
             weighted_sum = np.sum(weighted_similarity)
 
@@ -167,7 +202,7 @@ def matching_in_window(bins_of_interest, people_of_interest, objects_of_interest
         matching[rfid_id] = max_object
     return matching
 
-def get_smooth_data_for_window(camera_data_dict, rfid_data_dict, start, window_size, bin_size):
+def get_smooth_data_for_window(camera_data_dict, depth_data_dict, rfid_data_dict, start, window_size, bin_size):
     '''FOR GIVEN WINDOW
     For each person smooth x data, smooth y data,
     (even smooth depth data if we get it).
@@ -194,7 +229,7 @@ def get_smooth_data_for_window(camera_data_dict, rfid_data_dict, start, window_s
     people_of_interest = {}
     objects_of_interest ={}
     for p in people_in_window: #init x,y for each bin
-        people_of_interest[p] = ([-0.5]*window_size, [-0.5]*window_size)
+        people_of_interest[p] = ([-0.5]*window_size, [-0.5]*window_size, [-0.5]*window_size)
     for o in objects_in_window: #init rssi for each bin
         objects_of_interest[o] = [-0.5]*window_size
 
@@ -204,8 +239,10 @@ def get_smooth_data_for_window(camera_data_dict, rfid_data_dict, start, window_s
         for b in bins_of_interest:
             try:
                 x,y = camera_data_dict[b][p]
+                depth = depth_data_dict[b][p]
                 people_of_interest[p][0][i] = x
                 people_of_interest[p][1][i] = y
+                people_of_interest[p][2][i] = depth
             except:
                 pass
             i+=1
@@ -229,7 +266,8 @@ def get_smooth_data_for_window(camera_data_dict, rfid_data_dict, start, window_s
     for p in people_of_interest:
         xvalues = people_of_interest[p][0]
         yvalues = people_of_interest[p][1]
-        people_of_interest[p] = (movingaverage(xvalues, avg_window), movingaverage(yvalues, avg_window))
+        depths = people_of_interest[p][2]
+        people_of_interest[p] = (movingaverage(xvalues, avg_window), movingaverage(yvalues, avg_window),movingaverage(depths, avg_window))
 
     for o in objects_of_interest:
         values = objects_of_interest[o]
@@ -237,11 +275,21 @@ def get_smooth_data_for_window(camera_data_dict, rfid_data_dict, start, window_s
 
     return bins_of_interest, people_of_interest, objects_of_interest
 
+cam_x = []
+cam_y = []
+cam_d = []
+rfid = []
+
 for t in range(int(absolute_start), int(absolute_end), 50):
     print(t)
     timestep = float(t)
-    b,p,o = get_smooth_data_for_window(processed_camera_bins, processed_rfid_bins, timestep, 10, 50)
-    print(matching_in_window(b, p, o))
+    b,p,o = get_smooth_data_for_window(processed_camera_bins, processed_depth_bins, processed_rfid_bins, timestep, 10, 50)
+    print(matching_in_window(b, p, o, cam_x, cam_y, cam_d, rfid))
+
+matplotlib.pyplot.scatter(cam_d, rfid)
+matplotlib.pyplot.xlabel("person depth")
+matplotlib.pyplot.ylabel("estimated object distance")
+matplotlib.pyplot.show()
 
 ########################################
 #Full Video Analysis Methods
