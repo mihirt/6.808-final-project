@@ -2,3 +2,4 @@
 deep_sort_yolov3-master/detection.txt
 output/*
 *.avi
+.DS_Store
