@@ -102,65 +102,8 @@ def compress_rfid_bin(bin_obj):
 processed_camera_bins = {timestamp: compress_camera_bin(obj) for timestamp, obj in camera_bins.items()}
 processed_rfid_bins = {timestamp: compress_rfid_bin(obj) for timestamp, obj in rfid_bins.items()}
 
-
-def create_delta_dict(processed_bins):
-    '''
-    Calculate % differences between centroid and RFID values.
-    '''
-    delta_dict = {}
-    for i, t in enumerate(sorted(processed_camera_bins.keys())):
-        if i == 0:
-            continue
-        timestep_deltas = {}
-        for id, val in processed_bins[t].items():
-            if id in processed_bins[t-BIN_SZ]:
-                prev_val = processed_bins[t-BIN_SZ][id]
-                timestep_deltas[id] = (val - prev_val) / (prev_val)
-        delta_dict[i] = timestep_deltas
-    return delta_dict
-
-delta_camera = create_delta_dict(processed_camera_bins)
-delta_rfid = create_delta_dict(processed_rfid_bins)
-
-def get_timesteps_with_id(data, id):
-    '''
-    Get all timesteps associated with any specific id (from the data).
-    '''
-    timesteps_arr = []
-    for key, val in data.items():
-        if id in val:
-            timesteps_arr.append(key)
-    return set(timesteps_arr)
-
-
-def compute_similarity(rfid_id, camera_id):
-    '''
-    Computes the covariance, Pearson and Spearman correlations between RFID and Camera data.
-    '''
-    # first, chop RFID to person data!
-    # or chop to both?
-    timesteps_rfid = get_timesteps_with_id(delta_rfid, rfid_id)
-    timesteps_camera = get_timesteps_with_id(delta_camera, camera_id)
-
-    # grab intersecting timesteps?
-    intersecting_timesteps = timesteps_rfid.intersection(timesteps_camera)
-
-    rfid = [delta_rfid[i][rfid_id] for i in intersecting_timesteps]
-    camera_x = [delta_camera[i][camera_id][0] for i in intersecting_timesteps]
-    camera_y = [delta_camera[i][camera_id][1] for i in intersecting_timesteps]
-
-    # returns (cov (x, rfid), cov (y, rfid), pearson(x, rfid), pearson(y,rfid), spearman (x, rfid), spearman(y, rfid))
-    cov_x_rfid = cov(camera_x, rfid)[0][1]
-    cov_y_rfid = cov(camera_y, rfid)[0][1]
-
-    pearson_x_rfid, _ = pearsonr(camera_x, rfid)
-    pearson_y_rfid, _ = pearsonr(camera_y, rfid)
-
-    spearman_x_rfid, _ = spearmanr(camera_x, rfid)
-    spearman_y_rfid, _ = spearmanr(camera_y, rfid)
-
-    return np.array([cov_x_rfid, cov_y_rfid, pearson_x_rfid, pearson_y_rfid, spearman_x_rfid, spearman_y_rfid])
-
+##################################
+#Window Analysis Methods
 def movingaverage(values, window):
     '''Computes Moving average using an average of window# of terms.'''
     weights = np.repeat(1.0, window)/window
@@ -273,7 +216,7 @@ def get_smooth_data_for_window(camera_data_dict, rfid_data_dict, start, window_s
                 pass
             i+=1
 
-    #Display Data Before Smoothing
+    # Display Data Before Smoothing
     # print(objects_of_interest)
     # print(people_of_interest)
 
@@ -294,6 +237,65 @@ def get_smooth_data_for_window(camera_data_dict, rfid_data_dict, start, window_s
 b,p,o = get_smooth_data_for_window(processed_camera_bins, processed_rfid_bins, 1588113136450.0, 10, 50)
 print(matching_in_window(b, p, o))
 
+########################################
+#Full Video Analysis Methods
+
+def compute_similarity(rfid_id, camera_id):
+    '''
+    Computes the covariance, Pearson and Spearman correlations between RFID and Camera data.
+    '''
+    # first, chop RFID to person data!
+    # or chop to both?
+    timesteps_rfid = get_timesteps_with_id(delta_rfid, rfid_id)
+    timesteps_camera = get_timesteps_with_id(delta_camera, camera_id)
+
+    # grab intersecting timesteps?
+    intersecting_timesteps = timesteps_rfid.intersection(timesteps_camera)
+
+    rfid = [delta_rfid[i][rfid_id] for i in intersecting_timesteps]
+    camera_x = [delta_camera[i][camera_id][0] for i in intersecting_timesteps]
+    camera_y = [delta_camera[i][camera_id][1] for i in intersecting_timesteps]
+
+    # returns (cov (x, rfid), cov (y, rfid), pearson(x, rfid), pearson(y,rfid), spearman (x, rfid), spearman(y, rfid))
+    cov_x_rfid = cov(camera_x, rfid)[0][1]
+    cov_y_rfid = cov(camera_y, rfid)[0][1]
+
+    pearson_x_rfid, _ = pearsonr(camera_x, rfid)
+    pearson_y_rfid, _ = pearsonr(camera_y, rfid)
+
+    spearman_x_rfid, _ = spearmanr(camera_x, rfid)
+    spearman_y_rfid, _ = spearmanr(camera_y, rfid)
+
+    return np.array([cov_x_rfid, cov_y_rfid, pearson_x_rfid, pearson_y_rfid, spearman_x_rfid, spearman_y_rfid])
+
+def create_delta_dict(processed_bins):
+    '''
+    Calculate % differences between centroid and RFID values.
+    '''
+    delta_dict = {}
+    for i, t in enumerate(sorted(processed_camera_bins.keys())):
+        if i == 0:
+            continue
+        timestep_deltas = {}
+        for id, val in processed_bins[t].items():
+            if id in processed_bins[t-BIN_SZ]:
+                prev_val = processed_bins[t-BIN_SZ][id]
+                timestep_deltas[id] = (val - prev_val) / (prev_val)
+        delta_dict[i] = timestep_deltas
+    return delta_dict
+
+delta_camera = create_delta_dict(processed_camera_bins)
+delta_rfid = create_delta_dict(processed_rfid_bins)
+
+def get_timesteps_with_id(data, id):
+    '''
+    Get all timesteps associated with any specific id (from the data).
+    '''
+    timesteps_arr = []
+    for key, val in data.items():
+        if id in val:
+            timesteps_arr.append(key)
+    return set(timesteps_arr)
 
 def get_unique_ids(processed_bins):
     '''
