@@ -31,7 +31,7 @@ if (cap.isOpened() == False):
 depth_list = []
 counter = 0
 # cap.set(2, 0.06)
-while (cap.isOpened() and counter < 300):
+while (cap.isOpened()):
     # Capture frame-by-frame
     ret, frame = cap.read()
     # print(ret)
