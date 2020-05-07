@@ -1,5 +1,5 @@
 *.h5
 deep_sort_yolov3-master/detection.txt
 output/*
-*.avi
+**/**/*.avi
 .DS_Store
