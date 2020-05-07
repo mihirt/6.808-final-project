@@ -31,7 +31,7 @@ if (cap.isOpened() == False):
 depth_list = []
 counter = 0
 # cap.set(2, 0.06)
-while (cap.isOpened()):
+while (cap.isOpened() and counter < 1000):
     # Capture frame-by-frame
     ret, frame = cap.read()
     # print(ret)
@@ -49,11 +49,14 @@ while (cap.isOpened()):
             center = normalize(center, sz)
             newLoc = (int(center[0] * 640) - 1, int(center[1] * 191) - 2)
             print(newLoc)
-            depth = depth_values[0][0][newLoc[1]][640 - newLoc[0]]
-            print(depth)
-            cv2.circle(opencv_image, (newLoc[1], 640 - newLoc[0]), 10,
-                       (0, 0, 255), 5)
-            dict[key] = str(depth)
+            try:
+                depth = depth_values[0][0][newLoc[1]][640 - newLoc[0]]                
+                print(depth)
+                cv2.circle(opencv_image, (newLoc[1], 640 - newLoc[0]), 10,
+                        (0, 0, 255), 5)
+                dict[key] = str(depth)
+            except:
+                pass
         depth_list.append(dict)
 
         # cv2.imwrite("bob.jpg", opencv_image)
