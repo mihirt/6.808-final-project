@@ -203,7 +203,40 @@ def matching_in_window(bins_of_interest, people_of_interest, objects_of_interest
     return matching
 
 def binary1_window_matching(bins_of_interest, people_of_interest, objects_of_interest, cam_x, cam_y, cam_d, rfid):
-    return
+    matching = {}
+    weight_changes_in_x = 1.0
+    weight_changes_in_y = 1.0
+    weight_changes_in_depth = 1.0
+    weight_changes_in_rssi = 1.0
+
+    for rfid_id in objects_of_interest.keys():
+        delta_rfid = create_deltas(objects_of_interest[rfid_id])
+
+        total_rssi_change = np.sum(delta_rfid) #sum change in window
+
+        max_object = None
+        max_object_val = 0.0
+
+        for camera_id in people_of_interest.keys():
+            delta_camera_x = create_deltas(people_of_interest[camera_id][0])
+            delta_camera_y = create_deltas(people_of_interest[camera_id][1])
+            delta_camera_depths = create_deltas(people_of_interest[camera_id][2])
+
+            total_x_change = np.sum(delta_camera_x)
+            total_y_change = np.sum(delta_camera_y)
+            total_depth_change = np.sum(delta_camera_depths)
+
+            #insert comparisons here
+
+
+
+            if weighted_sum > max_object_val:
+                max_object = camera_id
+                max_object_val = weighted_sum
+
+        matching[rfid_id] = max_object
+    return matching
+
 
 def get_smooth_data_for_window(camera_data_dict, depth_data_dict, rfid_data_dict, start, window_size, bin_size):
     '''FOR GIVEN WINDOW
