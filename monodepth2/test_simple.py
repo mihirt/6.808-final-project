@@ -167,7 +167,12 @@ def test_simple(args):
     """
 
 model_name="mono+stereo_640x192"
-device = torch.device("cpu")
+if torch.cuda.is_available():
+    print("USING CUDA")
+    device = torch.device("cuda")
+else:
+    print("USING CPU")
+    device = torch.device("cpu")
 
 download_model_if_doesnt_exist(model_name)
 model_path = os.path.join("models", model_name)
