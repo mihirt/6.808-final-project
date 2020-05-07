@@ -36,7 +36,7 @@ def main(yolo):
 
     writeVideo_flag = True
 
-    video_capture = cv2.VideoCapture(BASE_DIR+'6.808-final-project/large_space_2_box_fixed/video.avi')
+    video_capture = cv2.VideoCapture(BASE_DIR+'6.808-final-project/left_right/video.avi')
     # timestamps_cv_lib = []
     # timestamps_calc = []
 
@@ -132,7 +132,7 @@ def main(yolo):
         list_file.close()
     cv2.destroyAllWindows()
 
-    with open(BASE_DIR+'6.808-final-project/large_space_2_box_fixed/bounding_boxes.json', 'w') as outfile:
+    with open(BASE_DIR+'6.808-final-project/left_right/bounding_boxes.json', 'w') as outfile:
         json.dump(bboxes_per_frame, outfile)  #write dictionary to json
 
 if __name__ == '__main__':

@@ -202,6 +202,9 @@ def matching_in_window(bins_of_interest, people_of_interest, objects_of_interest
         matching[rfid_id] = max_object
     return matching
 
+def binary1_window_matching(bins_of_interest, people_of_interest, objects_of_interest, cam_x, cam_y, cam_d, rfid):
+    return
+
 def get_smooth_data_for_window(camera_data_dict, depth_data_dict, rfid_data_dict, start, window_size, bin_size):
     '''FOR GIVEN WINDOW
     For each person smooth x data, smooth y data,
