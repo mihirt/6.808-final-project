@@ -10,7 +10,7 @@ from numpy import cov
 from scipy.stats import pearsonr, spearmanr
 from rssi_to_distance import convert_rssi_to_distance
 
-base_directory = 'large_space_2_box_fixed/'
+base_directory = 'forward_back/'
 NUM_FRAMES = 300 #must correspond to number specified in demo.py
 
 with open(base_directory + 'video_data.json', 'r') as inputfile:
@@ -32,7 +32,7 @@ def round_up(num, divisor):
     return round_down(num+divisor, divisor)
 
 timestamp_data = timestamp_data[:NUM_FRAMES] #shorten based on length of bbox data
-
+original_ts_data = timestamp_data
 
 # binning
 BIN_SZ = 50
@@ -196,7 +196,7 @@ def matching_in_window(bins_of_interest, people_of_interest, objects_of_interest
                 max_object = camera_id
                 max_object_val = weighted_sum
 
-            print('SIMILARITY between {} and {} = {} -> value of {}'.format(rfid_id, camera_id, similarity_arr, weighted_sum))
+            # print('SIMILARITY between {} and {} = {} -> value of {}'.format(rfid_id, camera_id, similarity_arr, weighted_sum))
 
 
         matching[rfid_id] = max_object
@@ -293,9 +293,6 @@ def get_smooth_data_for_window(camera_data_dict, depth_data_dict, rfid_data_dict
                 pass
             i+=1
 
-    # Display Data Before Smoothing
-    # print(objects_of_interest)
-    # print(people_of_interest)
 
     # SMOOTH DATA
     avg_window = 3
@@ -316,16 +313,79 @@ cam_y = []
 cam_d = []
 rfid = []
 
+output = {} #associates matchings to timestamps
+
 for t in range(int(absolute_start), int(absolute_end), 50):
-    print(t)
     timestep = float(t)
     b,p,o = get_smooth_data_for_window(processed_camera_bins, processed_depth_bins, processed_rfid_bins, timestep, 10, 50)
-    print(matching_in_window(b, p, o, cam_x, cam_y, cam_d, rfid))
+    output[t] = matching_in_window(b, p, o, cam_x, cam_y, cam_d, rfid)
 
-matplotlib.pyplot.scatter(cam_d, rfid)
-matplotlib.pyplot.xlabel("person depth")
-matplotlib.pyplot.ylabel("estimated object distance")
-matplotlib.pyplot.show()
+def label_video(img, timestamp, camera_bins, matchings):
+    try:
+        for p in camera_bins[timestamp][0]:
+            x1 = int(camera_bins[timestamp][0][p][0])
+            y1 = int(camera_bins[timestamp][0][p][1])
+            x2 = int(camera_bins[timestamp][0][p][2])
+            y2 = int(camera_bins[timestamp][0][p][3])
+            cv2.rectangle(img,(x1,y1),(x2,y2),(0,255,0),6)
+        for o, p in matchings.items():
+            label = str(o)
+            labelSize=cv2.getTextSize(label,cv2.FONT_HERSHEY_COMPLEX,0.5,2)
+            _x1 = x1
+            _y1 = y1#+int(labelSize[0][1]/2)
+            _x2 = _x1+labelSize[0][0]
+            _y2 = y1-int(labelSize[0][1])
+            cv2.rectangle(img,(_x1,_y1),(_x2,_y2),(0,255,0),cv2.FILLED)
+            cv2.putText(img,label,(x1,y1),cv2.FONT_HERSHEY_COMPLEX,0.5,(0,0,0),1)
+    except:
+        pass
+    return img
+
+
+cap = cv2.VideoCapture('left_right/video.avi')
+
+# Check if camera opened successfully
+if (cap.isOpened()== False):
+    print("Error opening video stream or file")
+
+s = absolute_start
+while s > original_ts_data[0]:
+    s -= BIN_SZ
+e = absolute_end
+while s<e:
+    current_t = original_ts_data[0]
+    while current_t < s + BIN_SZ:
+        # Capture frame-by-frame
+        ret, frame = cap.read()
+
+        if ret == True:
+            frame = label_video(frame, float(s), camera_bins, output)
+            # Display the resulting frame
+            cv2.imshow('Frame',frame)
+
+        #Waits for a user input to quit the application
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+        # Break the loop
+        else:
+            break
+        original_ts_data = original_ts_data[1:]
+        current_t = original_ts_data[0]
+    s += BIN_SZ
+
+# When everything done, release the video capture object
+cap.release()
+
+# Closes all the frames
+cv2.destroyAllWindows()
+
+
+
+# matplotlib.pyplot.scatter(cam_d, rfid)
+# matplotlib.pyplot.xlabel("person depth")
+# matplotlib.pyplot.ylabel("estimated object distance")
+# matplotlib.pyplot.show()
 
 ########################################
 #Full Video Analysis Methods
@@ -396,4 +456,4 @@ def get_unique_ids(processed_bins):
         id_arr += bucket_obj.keys()
     return set(id_arr)
 
-embed()
+# embed()
